@@ -13,7 +13,7 @@ const TABS = [
   { id: 'howto',     icon: 'map-outline',  en: 'How-To',   ne: 'कसरी' },
   { id: 'screening', icon: 'clipboard',    en: 'Scales',   ne: 'स्केल' },
   { id: 'training',  icon: 'school',       en: 'Training', ne: 'तालिम' },
-  { id: 'resources', icon: 'book',         en: 'Resources',ne: 'स्रोत' },
+  { id: 'resources', icon: 'help-circle-outline', en: 'Resources', ne: 'स्रोत' },
 ];
 
 const emergencyNumbers = [
@@ -229,6 +229,77 @@ const mentalHealthResources = [
     title: { en: 'Suicide & Self-Harm: Facts vs. Myths', ne: 'आत्महत्या र आत्म-हानि: तथ्य बनाम मिथकहरू' },
     body:  { en: 'MYTH: "Asking about self-harm plants the idea."\nFACT: Asking directly does NOT increase risk — it opens the door to help.\n\nMYTH: "People who talk about it won\'t do it."\nFACT: Most people who attempt suicide gave warning signs beforehand.\n\nMYTH: "It is a permanent problem."\nFACT: Most suicidal crises are temporary and treatable with support.',
              ne: 'मिथक: "आत्म-हानिको बारेमा सोध्नाले विचार उत्पन्न गर्छ।"\nतथ्य: सोध्नाले जोखिम बढाउँदैन — यसले सहायताको ढोका खोल्छ।\n\nमिथक: "यसबारे कुरा गर्नेले गर्दैन।"\nतथ्य: धेरैजसो मानिसले पहिले नै चेतावनी संकेत दिएका हुन्छन्।' },
+  },
+];
+
+const privacyItems = [
+  {
+    title: { en: 'How is patient data stored?', ne: 'बिरामीको डाटा कसरी भण्डार गरिन्छ?' },
+    body:  { en: 'All data is stored locally on your device in an SQLite database. No patient information is sent anywhere without your explicit action. The app works 100% offline — internet is only needed for the optional sync step.',
+             ne: 'सबै डाटा तपाईंको उपकरणमा SQLite डेटाबेसमा स्थानीय रूपमा भण्डार गरिन्छ। तपाईंको स्पष्ट कार्य बिना कुनै बिरामीको जानकारी कतै पठाइँदैन। एप १००% अफलाइन काम गर्छ।' },
+  },
+  {
+    title: { en: 'What screening tools are used and why?', ne: 'कुन स्क्रीनिंग उपकरणहरू प्रयोग गरिन्छन् र किन?' },
+    body:  { en: 'AAMA Sakhi uses the Edinburgh Postnatal Depression Scale (EPDS) for postnatal mothers and the Patient Health Questionnaire for Adolescents (PHQ-A) for youth aged 12–19. Both are WHO-endorsed, internationally validated, and adapted for low-resource community settings. Questions are shown as-is — they are not reworded or masked.',
+             ne: 'AAMA सखीले प्रसूतिपछिकी आमाहरूको लागि EPDS र १२–१९ वर्षका युवाहरूको लागि PHQ-A प्रयोग गर्छ। दुवै WHO-अनुमोदित, अन्तर्राष्ट्रिय रूपमा प्रमाणित उपकरण हुन्।' },
+  },
+  {
+    title: { en: 'Who can access patient records?', ne: 'बिरामीका रेकर्डहरू को-को हेर्न सक्छ?' },
+    body:  { en: 'Only the logged-in FCHV can access records on the device. Records are linked to a volunteer ID — not a shared account. After sync, data is accessible to authorised district health staff only. Patient names are never shared with family members without explicit consent.',
+             ne: 'उपकरणमा लग इन गरिएको FCHV मात्र रेकर्ड हेर्न सक्छ। सिंक पछि, डाटा अधिकृत जिल्ला स्वास्थ्य कर्मचारीहरूले मात्र हेर्न सक्छन्।' },
+  },
+  {
+    title: { en: "Does the app follow Nepal's health guidelines?", ne: 'के एपले नेपालको स्वास्थ्य दिशानिर्देश पालना गर्छ?' },
+    body:  { en: 'Yes. AAMA Sakhi is designed for use within Nepal\'s FCHV Programme framework. It follows the Nepal Health Sector Strategy, WHO Mental Health Action Plan 2013–2030, and Ministry of Health and Population guidelines for community mental health screening. The 3-tier referral protocol (low → health post → psychiatric nurse) mirrors the national health system structure.',
+             ne: 'हो। AAMA सखी नेपालको FCHV कार्यक्रम ढाँचाभित्र प्रयोगको लागि डिजाइन गरिएको छ। यसले नेपाल स्वास्थ्य क्षेत्र रणनीति र WHO मानसिक स्वास्थ्य कार्य योजना २०१३–२०३० पालना गर्छ।' },
+  },
+  {
+    title: { en: 'What happens to data when a volunteer stops working?', ne: 'स्वयंसेवकले काम छोडेपछि डाटाको के हुन्छ?' },
+    body:  { en: 'Data remains on the device until it is synced or the app is uninstalled. Supervisors can request a final sync before a volunteer transitions. Patient care responsibility transfers to the district health post — the records remain accessible to authorised health staff through the central system after sync.',
+             ne: 'डाटा सिंक नभएसम्म वा एप अनइन्स्टल नगरेसम्म उपकरणमा रहन्छ। पर्यवेक्षकले ट्रान्जिसन अघि अन्तिम सिंकको अनुरोध गर्न सक्छन्।' },
+  },
+];
+
+const futureFeatures = [
+  {
+    title: { en: 'Video Teleconsultation', ne: 'भिडियो टेलिकन्सल्टेशन' },
+    body:  { en: 'Live video calls between FCHVs and psychiatrists/counselors for real-time case guidance — no travel required. Especially valuable for remote mountain districts.',
+             ne: 'FCHV र मनोचिकित्सक/परामर्शदाताहरूबीच रियल-टाइम केस मार्गदर्शनको लागि लाइभ भिडियो कल — यात्रा आवश्यक पर्दैन।' },
+  },
+  {
+    title: { en: 'Automated Follow-up Reminders', ne: 'स्वचालित फलो-अप रिमाइन्डर' },
+    body:  { en: 'Push notifications that remind the volunteer when a high/critical patient is due for a follow-up visit, based on their risk level schedule. Reduces missed follow-ups.',
+             ne: 'उच्च/गम्भीर बिरामीको जोखिम स्तर अनुसार फलो-अप भेट आउँदा स्वयंसेवकलाई सम्झाउने पुश नोटिफिकेशन।' },
+  },
+  {
+    title: { en: 'Supervisor Analytics Dashboard', ne: 'सुपरभाइजर एनालिटिक्स ड्यासबोर्ड' },
+    body:  { en: 'Web-based dashboard for health post supervisors and district health officers to view aggregated (de-identified) screening trends, risk distributions, and volunteer activity — enabling data-driven resource allocation.',
+             ne: 'स्वास्थ्य चौकी सुपरभाइजर र जिल्ला स्वास्थ्य अधिकारीहरूको लागि स्क्रीनिंग प्रवृत्ति र जोखिम वितरण हेर्न वेब-आधारित ड्यासबोर्ड।' },
+  },
+  {
+    title: { en: 'Multi-Language Support', ne: 'बहु-भाषा समर्थन' },
+    body:  { en: 'Expansion to Maithili, Bhojpuri, Tamang, and other regional languages spoken across Nepal\'s Terai and hill districts, making the app accessible to more communities.',
+             ne: 'मैथिली, भोजपुरी, तामाङ र नेपालका तराई र पहाडी जिल्लाहरूमा बोलिने अन्य क्षेत्रीय भाषाहरूमा विस्तार।' },
+  },
+  {
+    title: { en: 'DHIS2 & National Health System Sync', ne: 'DHIS2 र राष्ट्रिय स्वास्थ्य प्रणाली सिंक' },
+    body:  { en: 'Real-time data flow to Nepal\'s District Health Information System 2 (DHIS2) and the planned National Health ID system, enabling longitudinal patient tracking across providers.',
+             ne: 'नेपालको DHIS2 र राष्ट्रिय स्वास्थ्य ID प्रणालीमा रियल-टाइम डाटा प्रवाह, प्रदायकहरूमा दीर्घकालीन बिरामी ट्र्याकिङ सक्षम पार्ने।' },
+  },
+  {
+    title: { en: 'FCHV Peer Support Network', ne: 'FCHV पीयर सपोर्ट नेटवर्क' },
+    body:  { en: 'In-app group chat and case discussion forum for FCHVs in the same district, enabling peer learning and reducing emotional isolation from difficult cases.',
+             ne: 'एउटै जिल्लाका FCHV हरूको लागि इन-एप ग्रुप च्याट र केस छलफल फोरम, पीयर लर्निङ र गाह्रो केसहरूबाट भावनात्मक एकाकीपन कम गर्ने।' },
+  },
+  {
+    title: { en: 'District Risk Heatmap', ne: 'जिल्ला जोखिम हिटम्याप' },
+    body:  { en: 'A geographic heatmap showing ward-level concentration of high/critical cases, helping health post supervisors target outreach resources and schedule cluster visits.',
+             ne: 'उच्च/गम्भीर मामिलाहरूको वडा-स्तर एकाग्रता देखाउने भौगोलिक हिटम्याप, स्वास्थ्य चौकी सुपरभाइजरहरूलाई आउटरिच स्रोत लक्षित गर्न मद्दत गर्ने।' },
+  },
+  {
+    title: { en: 'Offline AI-Assisted Risk Flagging', ne: 'अफलाइन AI-सहायता जोखिम फ्ल्यागिङ' },
+    body:  { en: 'On-device lightweight ML model that can detect unusual response patterns (e.g. rapid score escalation across visits) and proactively flag them to the volunteer, complementing the existing rule-based scoring.',
+             ne: 'उपकरणमा असामान्य प्रतिक्रिया ढाँचाहरू पत्ता लगाउने हल्का ML मोडेल जसले विद्यमान नियम-आधारित स्कोरिङलाई पूरक बनाउँछ।' },
   },
 ];
 
@@ -559,6 +630,26 @@ export default function VolunteerGuideScreen() {
             </Text>
             {faq.map((item, i) => (
               <AccordionItem key={i} title={L(item.q)} body={L(item.a)} />
+            ))}
+
+            <Text style={[commonStyles.sectionTitle, { marginTop: 24 }]}>
+              {lang === 'ne' ? 'गोपनीयता र डाटा सुरक्षा' : 'Privacy & Data Security'}
+            </Text>
+            <Text style={styles.sectionSub}>
+              {lang === 'ne' ? 'AAMA सखीले तपाईंको र बिरामीको डाटा कसरी सुरक्षित राख्छ' : 'How AAMA Sakhi protects your data and patients\' privacy'}
+            </Text>
+            {privacyItems.map((item, i) => (
+              <AccordionItem key={i} title={L(item.title)} body={L(item.body)} />
+            ))}
+
+            <Text style={[commonStyles.sectionTitle, { marginTop: 24 }]}>
+              {lang === 'ne' ? 'भविष्यमा थपिने सुविधाहरू' : 'Planned Future Features'}
+            </Text>
+            <Text style={styles.sectionSub}>
+              {lang === 'ne' ? 'AAMA सखीलाई थप शक्तिशाली बनाउने योजनाहरू' : 'Features planned to make AAMA Sakhi more powerful and scalable'}
+            </Text>
+            {futureFeatures.map((item, i) => (
+              <AccordionItem key={i} title={L(item.title)} body={L(item.body)} />
             ))}
           </>
         )}

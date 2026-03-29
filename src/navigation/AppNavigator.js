@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,7 +22,7 @@ const TAB_ICONS = {
   Home: { focused: 'home', unfocused: 'home-outline' },
   NewVisit: { focused: 'add-circle', unfocused: 'add-circle-outline' },
   Patients: { focused: 'people', unfocused: 'people-outline' },
-  Guide: { focused: 'book', unfocused: 'book-outline' },
+  Guide: { focused: 'help-circle', unfocused: 'help-circle-outline' },
   Consult: { focused: 'chatbubbles', unfocused: 'chatbubbles-outline' },
   Settings: { focused: 'settings', unfocused: 'settings-outline' },
 };
@@ -35,6 +35,18 @@ function LangToggle() {
       onPress={() => setLanguage(lang === 'ne' ? 'en' : 'ne')}
     >
       <Text style={styles.langToggleText}>{lang === 'ne' ? 'EN' : 'ने'}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ProfileIconBtn({ navigation }) {
+  return (
+    <TouchableOpacity
+      style={styles.profileIconBtn}
+      onPress={() => navigation.navigate('Settings')}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+    >
+      <Ionicons name="person-circle-outline" size={28} color={COLORS.primary} />
     </TouchableOpacity>
   );
 }
@@ -54,7 +66,7 @@ function MainTabs({ onLogout, volunteer }) {
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={({ route, navigation }) => ({
         tabBarIcon: ({ focused, color }) => {
           const icons = TAB_ICONS[route.name];
           const iconName = focused ? icons.focused : icons.unfocused;
@@ -86,7 +98,12 @@ function MainTabs({ onLogout, volunteer }) {
           color: COLORS.text,
         },
         headerTintColor: COLORS.text,
-        headerRight: () => <LangToggle />,
+        headerRight: () => (
+          <View style={styles.headerRight}>
+            <LangToggle />
+            <ProfileIconBtn navigation={navigation} />
+          </View>
+        ),
       })}
     >
       <Tab.Screen
@@ -171,8 +188,13 @@ export default function AppNavigator({ volunteer, onLogout }) {
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: 12,
+  },
   langToggle: {
-    marginRight: 16,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -184,5 +206,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: COLORS.primary,
+  },
+  profileIconBtn: {
+    padding: 2,
   },
 });

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const strings = {
@@ -471,7 +472,7 @@ export function I18nProvider({ children }) {
 
   const t = (key) => strings[lang]?.[key] || strings.en[key] || key;
 
-  if (!loaded) return null;
+  if (!loaded) return <View style={{ flex: 1, backgroundColor: '#f0fdf4' }} />;
 
   return <I18nContext.Provider value={{ lang, setLanguage, t }}>{children}</I18nContext.Provider>;
 }

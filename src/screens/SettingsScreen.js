@@ -6,16 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../utils/i18n';
-import { getUnsyncedCount, getActiveAlertsForProfile, getVolunteerStats } from '../db';
-import RiskBadge from '../components/RiskBadge';
+import { getUnsyncedCount, getVolunteerStats } from '../db';
 import { COLORS, SIZES, commonStyles } from '../theme';
 
 export default function SettingsScreen({ onLogout, volunteer, navigation }) {
   const { t, lang, setLanguage } = useTranslation();
   const [pendingCount, setPendingCount] = useState(0);
   const [stats, setStats] = useState({ totalVisits: 0, activeAlerts: 0, criticalAlerts: 0 });
-  const [activeAlerts, setActiveAlerts] = useState([]);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showFuture, setShowFuture] = useState(false);
   const [fchvName, setFchvName] = useState('');
   const [fchvDistrict, setFchvDistrict] = useState('');
 
@@ -24,7 +23,6 @@ export default function SettingsScreen({ onLogout, volunteer, navigation }) {
       try {
         setPendingCount(getUnsyncedCount());
         setStats(getVolunteerStats());
-        setActiveAlerts(getActiveAlertsForProfile());
       } catch {}
       AsyncStorage.getItem('fchv-name').then((v) => v && setFchvName(v));
       AsyncStorage.getItem('fchv-district').then((v) => v && setFchvDistrict(v));
@@ -141,70 +139,38 @@ export default function SettingsScreen({ onLogout, volunteer, navigation }) {
         </View>
       </View>
 
-      {/* ── Active Patient Alerts ── */}
-      <View style={styles.alertsHeaderRow}>
-        <Text style={commonStyles.sectionTitle}>{t('myAlerts')}</Text>
-        {activeAlerts.length > 3 && (
-          <TouchableOpacity onPress={() => navigation && navigation.navigate('Patients')}>
-            <Text style={styles.viewAllText}>{t('viewAll')}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <Text style={[commonStyles.subtitle, { marginTop: -8, marginBottom: 12 }]}>{t('patientAlertsSub')}</Text>
-
-      {activeAlerts.length === 0 ? (
-        <View style={styles.noAlerts}>
-          <Ionicons name="checkmark-circle" size={36} color={COLORS.riskLow} />
-          <Text style={styles.noAlertsText}>{t('noActiveAlerts')}</Text>
-        </View>
-      ) : (
-        <View>
-          {activeAlerts.slice(0, 5).map((item) => (
-            <TouchableOpacity
-              key={item.patientId}
-              style={[
-                styles.alertItem,
-                item.riskLevel === 'critical' && styles.alertItemCritical,
-              ]}
-              onPress={() => navigation && navigation.navigate('PatientDetail', {
-                patientId: item.patientId,
-                patientName: item.patientName,
-              })}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.alertAvatar, item.riskLevel === 'critical' && styles.alertAvatarCritical]}>
-                <Text style={[styles.alertAvatarText, item.riskLevel === 'critical' && { color: COLORS.riskCritical }]}>
-                  {item.patientName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.alertName}>{item.patientName}</Text>
-                <Text style={styles.alertMeta}>
-                  {item.patientType === 'postnatal' ? t('postnatalMother') : t('youth')}
-                  {' · '}{t('age')} {item.age}
-                  {item.selfHarmFlag ? '  ⚠️' : ''}
-                </Text>
-                <Text style={styles.alertDate}>{t('lastVisit')}: {item.lastVisitDate}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <RiskBadge riskLevel={item.riskLevel} lang={lang} size="small" />
-                <Ionicons name="chevron-forward" size={14} color={COLORS.textMuted} />
-              </View>
-            </TouchableOpacity>
-          ))}
-          {activeAlerts.length > 5 && (
-            <TouchableOpacity
-              style={styles.viewMoreBtn}
-              onPress={() => navigation && navigation.navigate('Patients')}
-            >
-              <Text style={styles.viewMoreText}>
-                +{activeAlerts.length - 5} {lang === 'ne' ? 'थप बिरामीहरू' : 'more patients'}
-              </Text>
-              <Ionicons name="arrow-forward" size={14} color={COLORS.primary} />
-            </TouchableOpacity>
+      {/* ── Quick Links ── */}
+      <View style={[commonStyles.row, { gap: 10, marginBottom: 20 }]}>
+        <TouchableOpacity
+          style={styles.quickLink}
+          onPress={() => navigation && navigation.navigate('Patients')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="people" size={22} color={COLORS.accent} />
+          <Text style={styles.quickLinkText}>{lang === 'ne' ? 'बिरामीहरू' : 'Patients'}</Text>
+          {stats.activeAlerts > 0 && (
+            <View style={styles.quickLinkBadge}>
+              <Text style={styles.quickLinkBadgeText}>{stats.activeAlerts}</Text>
+            </View>
           )}
-        </View>
-      )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLink}
+          onPress={() => navigation && navigation.navigate('Consult')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubbles" size={22} color={COLORS.primary} />
+          <Text style={styles.quickLinkText}>{lang === 'ne' ? 'सल्लाह' : 'Consult'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLink}
+          onPress={() => navigation && navigation.navigate('Guide')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="help-circle" size={22} color="#3b82f6" />
+          <Text style={styles.quickLinkText}>{lang === 'ne' ? 'गाइड' : 'Guide'}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ── Language ── */}
       <Text style={commonStyles.sectionTitle}>{t('language')}</Text>
@@ -259,6 +225,40 @@ export default function SettingsScreen({ onLogout, volunteer, navigation }) {
         </View>
       </View>
 
+      {/* ── Privacy & Compliance ── */}
+      <Text style={commonStyles.sectionTitle}>
+        {lang === 'ne' ? 'गोपनीयता र अनुपालन' : 'Privacy & Compliance'}
+      </Text>
+      <View style={commonStyles.card}>
+        {[
+          { icon: 'lock-closed', color: '#3b82f6', bg: '#dbeafe',
+            label: lang === 'ne' ? 'स्थानीय SQLite भण्डारण — इन्टरनेट बिना पनि सुरक्षित' : 'Local SQLite storage — secure without internet',
+          },
+          { icon: 'shield-checkmark', color: COLORS.riskLow, bg: '#dcfce7',
+            label: lang === 'ne' ? 'WHO मानसिक स्वास्थ्य कार्य योजना २०१३–२०३० अनुरूप' : 'Aligned with WHO Mental Health Action Plan 2013–2030',
+          },
+          { icon: 'document-text', color: COLORS.primary, bg: '#ccfbf1',
+            label: lang === 'ne' ? 'EPDS र PHQ-A: अन्तर्राष्ट्रिय रूपमा प्रमाणित स्क्रीनिंग उपकरण' : 'EPDS & PHQ-A: internationally validated screening instruments',
+          },
+          { icon: 'eye-off', color: '#a855f7', bg: '#f3e8ff',
+            label: lang === 'ne' ? 'बिरामीको डाटा स्पष्ट सहमति बिना कसैसँग साझा गरिँदैन' : 'Patient data never shared without explicit informed consent',
+          },
+          { icon: 'people', color: COLORS.accent, bg: '#fef3c7',
+            label: lang === 'ne' ? 'नेपाल स्वास्थ्य नीति र FCHV कार्यक्रम दिशानिर्देश अनुसार' : 'Follows Nepal Health Policy & FCHV Programme guidelines',
+          },
+          { icon: 'phone-portrait', color: '#6366f1', bg: '#e0e7ff',
+            label: lang === 'ne' ? 'डाटा उपकरणमै रहन्छ — सिंकमा मात्र केन्द्रीय प्रणालीमा जान्छ' : 'All data stays on-device; uploaded to central system only on explicit sync',
+          },
+        ].map((item, i, arr) => (
+          <View key={i} style={[styles.privacyRow, i < arr.length - 1 && styles.privacyRowBorder]}>
+            <View style={[styles.privacyIcon, { backgroundColor: item.bg }]}>
+              <Ionicons name={item.icon} size={16} color={item.color} />
+            </View>
+            <Text style={styles.privacyLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+
       {/* ── About ── */}
       <Text style={commonStyles.sectionTitle}>{t('about')}</Text>
       <View style={commonStyles.card}>
@@ -273,9 +273,42 @@ export default function SettingsScreen({ onLogout, volunteer, navigation }) {
         </View>
         <Text style={styles.aboutText}>
           {lang === 'ne'
-            ? 'AAMA सखी नेपालका स्वयंसेवकहरूको लागि एक अफलाइन-फर्स्ट मानसिक स्वास्थ्य स्क्रिनिङ उपकरण हो।'
+            ? 'AAMA सखी नेपालका ५०,०००+ FCHV स्वयंसेवकहरूको लागि एक अफलाइन-फर्स्ट मानसिक स्वास्थ्य स्क्रिनिङ उपकरण हो।'
             : "AAMA Sakhi is an offline-first mental health screening tool for Nepal's 50,000+ FCHVs."}
         </Text>
+
+        {/* Future features */}
+        <TouchableOpacity
+          style={styles.futureToggle}
+          onPress={() => setShowFuture((v) => !v)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="rocket-outline" size={16} color={COLORS.primary} />
+          <Text style={styles.futureToggleText}>
+            {lang === 'ne' ? 'भविष्यमा थपिने सुविधाहरू' : 'Planned Future Features'}
+          </Text>
+          <Ionicons name={showFuture ? 'chevron-up' : 'chevron-down'} size={14} color={COLORS.textMuted} />
+        </TouchableOpacity>
+
+        {showFuture && (
+          <View style={styles.futureList}>
+            {[
+              { icon: 'videocam-outline',      text: lang === 'ne' ? 'मनोचिकित्सकसँग भिडियो परामर्श' : 'Video teleconsultation with psychiatrists' },
+              { icon: 'notifications-outline', text: lang === 'ne' ? 'फलो-अप रिमाइन्डर (पुश नोटिफिकेशन)' : 'Automated follow-up reminders (push notifications)' },
+              { icon: 'analytics-outline',     text: lang === 'ne' ? 'स्वास्थ्य चौकी सुपरभाइजरको लागि एनालिटिक्स ड्यासबोर्ड' : 'Analytics dashboard for health post supervisors' },
+              { icon: 'language-outline',      text: lang === 'ne' ? 'थप भाषाहरू: मैथिली, भोजपुरी, तामाङ' : 'More languages: Maithili, Bhojpuri, Tamang' },
+              { icon: 'id-card-outline',       text: lang === 'ne' ? 'नेपालको राष्ट्रिय स्वास्थ्य ID सँग एकीकरण' : "Integration with Nepal's National Health ID system" },
+              { icon: 'sync-outline',          text: lang === 'ne' ? 'DHIS2 र स्वास्थ्य प्रणालीसँग रियल-टाइम सिंक' : 'Real-time sync with DHIS2 and district health systems' },
+              { icon: 'chatbubble-ellipses-outline', text: lang === 'ne' ? 'FCHVहरूको लागि पीयर सपोर्ट ग्रुप च्याट' : 'Peer support group chat for FCHV network' },
+              { icon: 'map-outline',           text: lang === 'ne' ? 'जिल्ला-स्तरीय जोखिम नक्सा (हिटम्याप)' : 'District-level risk heatmap for cluster targeting' },
+            ].map((f, i) => (
+              <View key={i} style={styles.futureItem}>
+                <Ionicons name={f.icon} size={15} color={COLORS.primary} />
+                <Text style={styles.futureItemText}>{f.text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* ── Sign Out ── */}
@@ -351,39 +384,33 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: SIZES.xl, fontWeight: '900', color: COLORS.text },
   statLbl: { fontSize: 10, color: COLORS.textSecondary, marginTop: 1, fontWeight: '600' },
-  alertsHeaderRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  viewAllText: { fontSize: SIZES.sm, fontWeight: '700', color: COLORS.primary },
-  noAlerts: {
-    alignItems: 'center', paddingVertical: 24, gap: 8,
-    backgroundColor: COLORS.surface, borderRadius: SIZES.borderRadiusSm, marginBottom: 20,
-  },
-  noAlertsText: { fontSize: SIZES.sm, color: COLORS.textSecondary, fontWeight: '600' },
-  alertItem: {
-    flexDirection: 'row', alignItems: 'center',
+  quickLink: {
+    flex: 1, alignItems: 'center', gap: 6,
     backgroundColor: COLORS.surface, borderRadius: SIZES.borderRadiusSm,
-    padding: 14, marginBottom: 8, gap: 12,
+    paddingVertical: 14, paddingHorizontal: 8,
     borderWidth: 1, borderColor: COLORS.border,
+    position: 'relative',
   },
-  alertItemCritical: {
-    borderColor: COLORS.riskCritical, borderWidth: 1.5, backgroundColor: '#fff5f5',
+  quickLinkText: { fontSize: SIZES.xs, fontWeight: '600', color: COLORS.text },
+  quickLinkBadge: {
+    position: 'absolute', top: 6, right: 6,
+    backgroundColor: COLORS.riskHigh, borderRadius: 10,
+    minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 4,
   },
-  alertAvatar: {
-    width: 42, height: 42, borderRadius: 21,
-    backgroundColor: '#fee2e2', justifyContent: 'center', alignItems: 'center',
+  quickLinkBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.white },
+  privacyRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 10 },
+  privacyRowBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  privacyIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  privacyLabel: { flex: 1, fontSize: SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
+  futureToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border,
   },
-  alertAvatarCritical: { backgroundColor: '#fecdd3' },
-  alertAvatarText: { fontSize: SIZES.sm, fontWeight: '700', color: COLORS.riskHigh },
-  alertName: { fontSize: SIZES.sm, fontWeight: '700', color: COLORS.text },
-  alertMeta: { fontSize: SIZES.xs, color: COLORS.textSecondary, marginTop: 2 },
-  alertDate: { fontSize: SIZES.xs, color: COLORS.textMuted, marginTop: 1 },
-  viewMoreBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 12, backgroundColor: '#f0fdfa',
-    borderRadius: SIZES.borderRadiusSm, borderWidth: 1, borderColor: '#99f6e4', marginBottom: 16,
-  },
-  viewMoreText: { fontSize: SIZES.sm, fontWeight: '700', color: COLORS.primary },
+  futureToggleText: { flex: 1, fontSize: SIZES.sm, fontWeight: '700', color: COLORS.primary },
+  futureList: { marginTop: 12, gap: 10 },
+  futureItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  futureItemText: { flex: 1, fontSize: SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
   langBtn: {
     flex: 1, height: SIZES.buttonHeight, justifyContent: 'center', alignItems: 'center',
     borderRadius: SIZES.borderRadiusSm, borderWidth: 2, borderColor: COLORS.border,

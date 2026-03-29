@@ -57,7 +57,12 @@ function initTables() {
   `);
   // Migration: add notes column for volunteer session notes
   try { db.execSync('ALTER TABLE visits ADD COLUMN notes TEXT DEFAULT ""'); } catch {}
+  // Auto-seed demo data on first install (INSERT OR IGNORE — safe to re-run)
+  seedDemoData();
 }
+
+// Initialize DB eagerly at module load so demo data is seeded before any screen renders
+getDb();
 
 function uuid() {
   return 'xxxx-xxxx-xxxx'.replace(/x/g, () => ((Math.random() * 16) | 0).toString(16));

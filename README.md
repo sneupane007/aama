@@ -4,7 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](LICENSE)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-61dafb.svg)](https://reactnative.dev/)
-[![WatermelonDB](https://img.shields.io/badge/WatermelonDB-SQLite-14b8a6.svg)](https://watermelondb.dev/)
+[![Expo](https://img.shields.io/badge/Expo-52-000020.svg)](https://expo.dev/)
+[![SQLite](https://img.shields.io/badge/Storage-SQLite%20(expo--sqlite)-14b8a6.svg)](https://docs.expo.dev/versions/latest/sdk/sqlite/)
 
 ---
 
@@ -31,55 +32,71 @@
 
 | Feature | Description |
 |---|---|
-| **Offline-First** | All data stored locally in WatermelonDB (SQLite) |
+| **Offline-First** | All data stored locally in SQLite via `expo-sqlite` |
 | **Validated Instruments** | Edinburgh Postnatal Depression Scale (EPDS) + PHQ-A for adolescents |
-| **Masked Questions** | Mental health questions disguised as general wellness inquiries |
+| **Transparent Screening** | Volunteers disclose the mental health check to patients using a soft, reassuring tone |
 | **Self-Harm Detection** | EPDS Q10 / PHQ-A Q9 triggers immediate SOS alert with crisis hotline |
 | **Bilingual** | Full English ↔ नेपाली toggle (Nepali default) |
 | **Geolocation** | Auto-captures visit location for regional mapping |
 | **Hybrid Alerts** | Auto-routes to nearest psychiatrist + manual contact/escalation |
-| **Volunteer Guide** | Training modules, emergency numbers, mental health resources |
+| **Cross-Platform** | Runs on Android, iOS, and Web |
 | **Simple UI** | Large touch targets, color-coded, designed for less-educated volunteers |
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| **Framework** | React Native + Expo |
-| **Offline Storage** | WatermelonDB (SQLite) |
+| **Framework** | React Native + Expo 52 |
+| **Offline Storage** | expo-sqlite (SQLite — WASM on web) |
 | **Navigation** | React Navigation (Bottom Tabs) |
 | **Icons** | @expo/vector-icons (Ionicons) |
 | **i18n** | Custom React context with AsyncStorage persistence |
 | **Location** | expo-location |
 | **Alert Routing** | On-device matching to demo psychiatrist data |
+| **Web** | react-native-web + Metro bundler |
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js 18+
 - npm 9+
-- Expo CLI
-- Xcode (for iOS) or Android Studio (for Android)
+- Expo CLI (`npm install -g expo-cli`)
+- Xcode (for iOS) or Android Studio (for Android) — not needed for web
 
 ### Installation
 
 ```bash
-cd /path/to/aama
+git clone https://github.com/your-org/aama-sakhi.git
+cd aama-sakhi
 npm install
 ```
 
-### Development
+### Running on Web
 
-WatermelonDB requires native modules, so you need a development build:
+No native build required — works directly in your browser:
 
 ```bash
-# Generate native projects
+npm run web
+# or
+npx expo start --web
+```
+
+This opens the app at `http://localhost:8081` using Metro bundler and `react-native-web`. Data is stored in SQLite via WebAssembly (WASM) in the browser — no server needed.
+
+> **Note:** The first load may take a moment while the SQLite WASM binary is downloaded and initialized.
+
+### Running on iOS / Android
+
+Native builds require device/emulator setup:
+
+```bash
+# Generate native projects (first time only)
 npx expo prebuild
 
-# Run on iOS
+# Run on iOS (requires macOS + Xcode)
 npx expo run:ios
 
-# Run on Android
+# Run on Android (requires Android Studio)
 npx expo run:android
 ```
 
@@ -88,8 +105,8 @@ npx expo run:android
 ```
 aama/
 ├── App.js                          # Entry point
-├── app.json                        # Expo configuration
-├── babel.config.js                 # Babel + WatermelonDB decorators
+├── app.json                        # Expo configuration (iOS, Android, Web)
+├── babel.config.js                 # Babel config
 ├── package.json
 ├── src/
 │   ├── components/
@@ -101,26 +118,23 @@ aama/
 │   │   ├── physicalHealth.js       # Physical health checklist items
 │   │   └── demoPsychiatrists.js    # Demo psychiatrist data + routing
 │   ├── db/
-│   │   ├── schema.js               # WatermelonDB schema
-│   │   ├── models/
-│   │   │   ├── Patient.js
-│   │   │   ├── Visit.js
-│   │   │   └── Alert.js
-│   │   └── index.js                # Database instance + helpers
+│   │   └── index.js                # SQLite init, schema, and all query helpers
 │   ├── navigation/
 │   │   └── AppNavigator.js         # Bottom tab navigation
 │   ├── screens/
-│   │   ├── HomeScreen.js           # Dashboard with stats + quick actions
+│   │   ├── HomeScreen.js           # Dashboard with stats + recent visits
+│   │   ├── LoginScreen.js          # FCHV credential gate
 │   │   ├── NewVisitScreen.js       # 4-step visit form + alert routing
-│   │   ├── PatientsScreen.js       # Patient list with search/filter
-│   │   ├── VolunteerGuideScreen.js # Training, resources, emergency numbers
-│   │   └── SettingsScreen.js       # Profile, language, sync status
+│   │   ├── PatientDetailScreen.js  # Per-patient visit history + psychiatrist assignment
+│   │   ├── PatientsScreen.js       # Patient list with risk-level filter
+│   │   ├── ConsultScreen.js        # Call specialists / volunteer self-wellbeing
+│   │   └── SettingsScreen.js       # Profile, language toggle, active alerts
 │   ├── theme/
-│   │   └── index.js                # Colors, sizes, common styles
+│   │   └── index.js                # COLORS, SIZES, shared styles
 │   └── utils/
-│       ├── alertService.js         # Hybrid alert creation + escalation
-│       ├── i18n.js                 # English ↔ Nepali translation
-│       └── riskEngine.js           # EPDS/PHQ-A scoring engine
+│       ├── alertService.js         # Psychiatrist matching and escalation
+│       ├── i18n.js                 # English ↔ Nepali translation context
+│       └── riskEngine.js           # EPDS/PHQ-A scoring and thresholds
 ├── PITCH.md
 └── README.md
 ```

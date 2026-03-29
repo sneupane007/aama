@@ -30,6 +30,10 @@
         "ACCESS_COARSE_LOCATION"
       ]
     },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "plugins": [
       "expo-location",
       "expo-asset",

@@ -33,12 +33,13 @@ No lint or test scripts are configured.
 ```
 App.js
 └── I18nProvider (src/utils/i18n.js)       ← translation context, persisted via AsyncStorage
-    └── AppNavigator (src/navigation/)      ← React Navigation bottom tabs (5 tabs)
-        ├── HomeScreen                      ← dashboard: stats, recent visits
-        ├── NewVisitScreen                  ← 4-step form: patient info → physical health → wellness Qs → results
-        ├── PatientsScreen                  ← patient list with risk-level filter
-        ├── VolunteerGuideScreen            ← training modules + emergency numbers
-        └── SettingsScreen                  ← profile, language toggle, sync status
+    └── LoginScreen                         ← FCHV credential gate (frontend-only, no backend)
+        └── AppNavigator (src/navigation/)  ← React Navigation bottom tabs (5 tabs)
+            ├── HomeScreen                  ← dashboard: stats, recent visits
+            ├── NewVisitScreen              ← 4-step form: patient info → physical health → wellness Qs → results
+            ├── PatientsScreen              ← patient list with risk-level filter; tap → PatientDetailScreen
+            ├── ConsultScreen               ← two tabs: call specialists / volunteer self-wellbeing request
+            └── SettingsScreen              ← volunteer profile, quick links, privacy info, language toggle, sync
 ```
 
 ### Data Flow for a Visit
@@ -52,8 +53,8 @@ App.js
 ### Database Schema (SQLite)
 
 - `patients`: id, name, age, patient_type (`postnatal`|`youth`), address, phone, geo_lat, geo_lng
-- `visits`: id, patient_id, visit_date, risk_level, risk_score, self_harm_flag, physical_checks (JSON), screening_responses (JSON), synced
-- `alerts`: id, visit_id, patient_name, risk_level, status, psychiatrist_id/name/phone, escalated
+- `visits`: id, patient_id, visit_date, risk_level, risk_score, max_score, self_harm_flag, physical_checks (JSON), screening_responses (JSON), notes, synced, created_at
+- `alerts`: id, visit_id, patient_id, patient_name, risk_level, status, psychiatrist_id/name/phone, escalated, notes, created_at
 
 ### Risk Thresholds
 
@@ -63,11 +64,25 @@ App.js
 | PHQ-A ages 12-14 | — | — | ≥13 | Q9 self-harm |
 | PHQ-A ages 15-19 | — | — | ≥11 | Q9 self-harm |
 
+## Gotchas
+
+- **iOS simulator haptic noise:** `[CoreHaptics] CHHapticPattern.mm:487` errors about missing `hapticpatternlibrary.plist` are simulator-only noise — not an app bug. Safe to ignore.
+- **`screenOptions` navigation access:** Tab.Navigator `screenOptions` must destructure `navigation` explicitly — `screenOptions={({ route, navigation }) => ({` — to use it in `headerRight` or similar callbacks.
+- **District must be English:** `AsyncStorage` key `fchv-district` must store the English district name (e.g. `"Kaski"`, not `"कास्की"`). `findNearestPsychiatrist()` in `alertService.js` compares against English strings only. `LoginScreen.js` always saves `match.district` (never `match.districtNe`).
+- **Demo data:** `seedDemoData()` in `src/db/index.js` uses `INSERT OR IGNORE` / `INSERT OR REPLACE`. Re-running does not duplicate records. Called at end of `initTables()` — safe to re-run on every DB open.
+- **Session keys (AsyncStorage):** `fchv-session` (volunteer JSON), `fchv-district` (English district), `fchv-lang` (`"en"` | `"ne"`).
+- **Psychiatrist assignment:** Any visit can have a psychiatrist assigned at any time via `assignPsychiatristToVisit()` — no appointment needed. Uses upsert (UPDATE existing alert or INSERT new one).
+- **`useFocusEffect`:** Profile (SettingsScreen) and PatientsScreen use `useFocusEffect` to reload data on tab focus — not `useEffect`.
+
 ### Key Files
 
+- `src/screens/LoginScreen.js` — FCHV credential gate; demo volunteers defined here
+- `src/screens/PatientDetailScreen.js` — per-patient visit history + psychiatrist assignment modal
+- `src/data/demoPsychiatrists.js` — psychiatrist roster used for assignment and consult screens
+- `src/data/physicalHealth.js` — physical health check question definitions
 - `src/utils/riskEngine.js` — scoring logic and thresholds
 - `src/utils/alertService.js` — psychiatrist matching and escalation
-- `src/utils/i18n.js` — all translation strings and `useI18n()` hook
+- `src/utils/i18n.js` — all translation strings; export is `useTranslation()` (alias: `useI18n`)
 - `src/theme/index.js` — COLORS, SIZES, shared styles (teal primary: `#0f766e`)
 - `src/db/index.js` — SQLite init and all query functions
 - `src/data/epds.js`, `src/data/phqa.js` — question banks
