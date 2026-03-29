@@ -66,8 +66,8 @@
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/aama-sakhi.git
-cd aama-sakhi
+git clone https://github.com/sneupane007/AAMA.git
+cd AAMA
 npm install
 ```
 
