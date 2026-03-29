@@ -164,6 +164,15 @@ When a visit results in **high** or **critical** risk:
 5. Volunteer can **escalate to supervisor** if needed
 6. For critical cases, **Crisis Hotline (1166)** is always one tap away
 
+## Team
+
+| Role | Name |
+|---|---|
+| **Team Member** | Sujal Neupane |
+| **Team Member** | Sujal Khatri |
+| **Team Member** | Sakxam Shrestha |
+| **Mentor** | Shalom Bhatta |
+
 ## License
 
 MIT License — free to use, modify, and distribute.

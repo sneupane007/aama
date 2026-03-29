@@ -70,9 +70,17 @@ App.js
 - **`screenOptions` navigation access:** Tab.Navigator `screenOptions` must destructure `navigation` explicitly — `screenOptions={({ route, navigation }) => ({` — to use it in `headerRight` or similar callbacks.
 - **District must be English:** `AsyncStorage` key `fchv-district` must store the English district name (e.g. `"Kaski"`, not `"कास्की"`). `findNearestPsychiatrist()` in `alertService.js` compares against English strings only. `LoginScreen.js` always saves `match.district` (never `match.districtNe`).
 - **Demo data:** `seedDemoData()` in `src/db/index.js` uses `INSERT OR IGNORE` / `INSERT OR REPLACE`. Re-running does not duplicate records. Called at end of `initTables()` — safe to re-run on every DB open.
-- **Session keys (AsyncStorage):** `fchv-session` (volunteer JSON), `fchv-district` (English district), `fchv-lang` (`"en"` | `"ne"`).
+- **Session keys (AsyncStorage):** `fchv-session` (volunteer JSON), `fchv-district` (English district), `aama-lang` (`"en"` | `"ne"`). Note: `i18n.js` uses `aama-lang`, NOT `fchv-lang`.
 - **Psychiatrist assignment:** Any visit can have a psychiatrist assigned at any time via `assignPsychiatristToVisit()` — no appointment needed. Uses upsert (UPDATE existing alert or INSERT new one).
 - **`useFocusEffect`:** Profile (SettingsScreen) and PatientsScreen use `useFocusEffect` to reload data on tab focus — not `useEffect`.
+
+## Web Platform
+
+- **Running on web:** `npm run web` (uses Metro + `react-native-web`)
+- **`expo-sqlite` has no web module:** `requireNativeModule('ExpoSQLite')` throws on web. Solution: `src/db/index.web.js` — Metro automatically uses `.web.js` over `.js` when bundling for web. The web file uses in-memory arrays with the same exported API; data resets on page refresh.
+- **Metro 500 debugging:** Browser shows a useless MIME error. Run `npx expo export --platform web` instead — it prints the actual file path, line number, and syntax error.
+- **Apostrophe trap:** Bilingual string literals (e.g. `"Nepal's"`) inside single-quoted JS strings silently break the Metro bundle with a 500. Use double quotes for any string containing an apostrophe.
+- **`react-dom` version pin:** Must be `react-dom@18.3.1` (not latest) to match `react@18.3.1`.
 
 ### Key Files
 
