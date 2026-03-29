@@ -43,8 +43,13 @@ function MainTabs({ onLogout, volunteer }) {
   const { t } = useTranslation();
 
   const SettingsWithProps = React.useCallback(
-    (props) => <SettingsScreen {...props} onLogout={onLogout} volunteer={volunteer} />,
+    (props) => <SettingsScreen {...props} onLogout={onLogout} volunteer={volunteer} navigation={props.navigation} />,
     [onLogout, volunteer],
+  );
+
+  const ConsultWithProps = React.useCallback(
+    (props) => <ConsultScreen {...props} volunteer={volunteer} />,
+    [volunteer],
   );
 
   return (
@@ -122,13 +127,13 @@ function MainTabs({ onLogout, volunteer }) {
       />
       <Tab.Screen
         name="Consult"
-        component={ConsultScreen}
+        component={ConsultWithProps}
         options={{ tabBarLabel: t('consultTab'), headerTitle: t('consultTitle') }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsWithProps}
-        options={{ tabBarLabel: t('navSettings'), headerTitle: t('settingsTitle') }}
+        options={{ tabBarLabel: t('navProfile'), headerTitle: t('profileTitle') }}
       />
     </Tab.Navigator>
   );

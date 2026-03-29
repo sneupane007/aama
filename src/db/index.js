@@ -190,12 +190,84 @@ export function createAlertRecord({ visitId, patientId, patientName, riskLevel, 
   return { id: alertId };
 }
 
+export function assignPsychiatristToVisit({ visitId, patientId, patientName, riskLevel, psychiatrist }) {
+  const db = getDb();
+  const existing = db.getFirstSync('SELECT id FROM alerts WHERE visit_id = ?', [visitId]);
+  const now = Date.now();
+  if (existing) {
+    db.runSync(
+      'UPDATE alerts SET psychiatrist_id = ?, psychiatrist_name = ?, psychiatrist_phone = ?, status = ? WHERE id = ?',
+      [psychiatrist.id, psychiatrist.name, psychiatrist.phone, 'sent', existing.id],
+    );
+    return { id: existing.id };
+  }
+  const alertId = uuid();
+  db.runSync(
+    `INSERT INTO alerts (id, visit_id, patient_id, patient_name, risk_level, status, psychiatrist_id, psychiatrist_name, psychiatrist_phone, escalated, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, 0, '', ?)`,
+    [alertId, visitId, patientId, patientName, riskLevel || 'low', psychiatrist.id, psychiatrist.name, psychiatrist.phone, now],
+  );
+  return { id: alertId };
+}
+
 export function escalateAlert(alertId, notes) {
   getDb().runSync('UPDATE alerts SET escalated = 1, status = ?, notes = ? WHERE id = ?', [
     'escalated',
     notes,
     alertId,
   ]);
+}
+
+export function getActiveAlertsForProfile() {
+  const patients = getDb().getAllSync('SELECT * FROM patients ORDER BY created_at DESC');
+  const visits = getDb().getAllSync('SELECT * FROM visits ORDER BY created_at DESC');
+
+  const results = patients
+    .map((p) => {
+      const patientVisits = visits.filter((v) => v.patient_id === p.id);
+      const latest = patientVisits[0];
+      if (!latest) return null;
+      if (latest.risk_level !== 'high' && latest.risk_level !== 'critical') return null;
+      return {
+        patientId: p.id,
+        patientName: p.name,
+        age: p.age,
+        patientType: p.patient_type,
+        riskLevel: latest.risk_level,
+        lastVisitDate: latest.visit_date,
+        selfHarmFlag: !!latest.self_harm_flag,
+        visitCount: patientVisits.length,
+      };
+    })
+    .filter(Boolean);
+
+  results.sort((a, b) => {
+    if (a.riskLevel === 'critical' && b.riskLevel !== 'critical') return -1;
+    if (b.riskLevel === 'critical' && a.riskLevel !== 'critical') return 1;
+    return 0;
+  });
+  return results;
+}
+
+export function getVolunteerStats() {
+  const totalRow = getDb().getFirstSync('SELECT COUNT(*) as cnt FROM visits');
+  const alertRow = getDb().getFirstSync(
+    `SELECT COUNT(DISTINCT p.id) as cnt FROM patients p
+     JOIN visits v ON v.patient_id = p.id
+     WHERE v.risk_level IN ('high','critical')
+     AND v.created_at = (SELECT MAX(v2.created_at) FROM visits v2 WHERE v2.patient_id = p.id)`,
+  );
+  const critRow = getDb().getFirstSync(
+    `SELECT COUNT(DISTINCT p.id) as cnt FROM patients p
+     JOIN visits v ON v.patient_id = p.id
+     WHERE v.risk_level = 'critical'
+     AND v.created_at = (SELECT MAX(v2.created_at) FROM visits v2 WHERE v2.patient_id = p.id)`,
+  );
+  return {
+    totalVisits: totalRow?.cnt || 0,
+    activeAlerts: alertRow?.cnt || 0,
+    criticalAlerts: critRow?.cnt || 0,
+  };
 }
 
 export function hasDemoData() {
@@ -215,67 +287,94 @@ export function seedDemoData() {
   }
 
   const patients = [
-    { id: 'demo-p1', name: 'Sita Sharma', age: 28, type: 'postnatal', address: 'Kaski Ward 6', lat: 28.2096, lng: 83.9856 },
-    { id: 'demo-p2', name: 'Gita Rai', age: 24, type: 'postnatal', address: 'Pokhara Ward 3', lat: 28.2096, lng: 83.9856 },
-    { id: 'demo-p3', name: 'Maya Thapa', age: 30, type: 'postnatal', address: 'Gorkha Ward 4', lat: 28.0005, lng: 84.6200 },
-    { id: 'demo-p4', name: 'Anita Gurung', age: 22, type: 'postnatal', address: 'Lamjung Ward 2', lat: 28.1500, lng: 84.4200 },
-    { id: 'demo-p5', name: 'Rajesh K.C.', age: 16, type: 'youth', address: 'Kaski Ward 8', lat: 28.2096, lng: 83.9856 },
-    { id: 'demo-p6', name: 'Priya Magar', age: 14, type: 'youth', address: 'Syangja Ward 1', lat: 28.0800, lng: 83.8800 },
-    { id: 'demo-p7', name: 'Kopila Shrestha', age: 26, type: 'postnatal', address: 'Tanahu Ward 3', lat: 27.9000, lng: 84.0000 },
-    { id: 'demo-p8', name: 'Aarav Tamang', age: 17, type: 'youth', address: 'Baglung Ward 2', lat: 28.2700, lng: 83.5900 },
+    { id: 'demo-p1',  name: 'Sita Sharma',      age: 28, type: 'postnatal', address: 'Kaski Ward 6',    lat: 28.2096, lng: 83.9856 },
+    { id: 'demo-p2',  name: 'Gita Rai',          age: 24, type: 'postnatal', address: 'Pokhara Ward 3',  lat: 28.2096, lng: 83.9856 },
+    { id: 'demo-p3',  name: 'Maya Thapa',        age: 30, type: 'postnatal', address: 'Gorkha Ward 4',   lat: 28.0005, lng: 84.6200 },
+    { id: 'demo-p4',  name: 'Anita Gurung',      age: 22, type: 'postnatal', address: 'Lamjung Ward 2',  lat: 28.1500, lng: 84.4200 },
+    { id: 'demo-p5',  name: 'Rajesh K.C.',       age: 16, type: 'youth',     address: 'Kaski Ward 8',    lat: 28.2096, lng: 83.9856 },
+    { id: 'demo-p6',  name: 'Priya Magar',       age: 14, type: 'youth',     address: 'Syangja Ward 1',  lat: 28.0800, lng: 83.8800 },
+    { id: 'demo-p7',  name: 'Kopila Shrestha',   age: 26, type: 'postnatal', address: 'Tanahu Ward 3',   lat: 27.9000, lng: 84.0000 },
+    { id: 'demo-p8',  name: 'Aarav Tamang',      age: 17, type: 'youth',     address: 'Baglung Ward 2',  lat: 28.2700, lng: 83.5900 },
+    { id: 'demo-p9',  name: 'Nirmala Adhikari',  age: 26, type: 'postnatal', address: 'Pokhara Ward 5',  lat: 28.2100, lng: 83.9900 },
+    { id: 'demo-p10', name: 'Sunita Pun',        age: 31, type: 'postnatal', address: 'Syangja Ward 3',  lat: 28.0750, lng: 83.8700 },
+    { id: 'demo-p11', name: 'Rahul Bhattarai',   age: 15, type: 'youth',     address: 'Kaski Ward 2',    lat: 28.2050, lng: 83.9750 },
+    { id: 'demo-p12', name: 'Sarita Khadka',     age: 27, type: 'postnatal', address: 'Gorkha Ward 1',   lat: 27.9950, lng: 84.6100 },
+    { id: 'demo-p13', name: 'Deepa Malla',       age: 23, type: 'postnatal', address: 'Tanahu Ward 7',   lat: 27.8900, lng: 84.0100 },
+    { id: 'demo-p14', name: 'Prashant Karki',    age: 13, type: 'youth',     address: 'Lamjung Ward 5',  lat: 28.1400, lng: 84.4100 },
   ];
 
-  const visits = [
-    { id: 'demo-v1', pid: 'demo-p1', risk: 'low',     score: 5,  maxScore: 30, selfHarm: 0, daysAgo: 0, notes: 'Patient appears well. Baby feeding regularly. Husband supportive. No concerns at this time.' },
-    { id: 'demo-v2', pid: 'demo-p2', risk: 'moderate', score: 11, maxScore: 30, selfHarm: 0, daysAgo: 1, notes: 'Patient reported occasional sadness and low energy. Husband migrated to Qatar last month. Advised community support group and scheduled 2-week follow-up.' },
-    { id: 'demo-v3', pid: 'demo-p3', risk: 'high',     score: 17, maxScore: 30, selfHarm: 0, daysAgo: 2, notes: 'Patient became tearful during visit. Reports difficulty sleeping and feeling overwhelmed with newborn. Mother-in-law conflict mentioned. Psychiatric nurse alerted.' },
-    { id: 'demo-v4', pid: 'demo-p4', risk: 'critical', score: 22, maxScore: 30, selfHarm: 1, daysAgo: 3, notes: 'Patient disclosed thoughts of self-harm. Did not elaborate further. Crisis protocol followed — stayed with patient until family member arrived. Emergency referral made.' },
-    { id: 'demo-v5', pid: 'demo-p5', risk: 'low',      score: 4,  maxScore: 27, selfHarm: 0, daysAgo: 0, notes: 'Student appears healthy and engaged. Active in school football team. Good family support. No concerns.' },
-    { id: 'demo-v6', pid: 'demo-p6', risk: 'moderate', score: 9,  maxScore: 27, selfHarm: 0, daysAgo: 4, notes: 'Student seems withdrawn compared to previous visit. Teacher mentioned declining grades. Parents unaware. Suggested family counseling session at health post.' },
-    { id: 'demo-v7', pid: 'demo-p7', risk: 'high',     score: 15, maxScore: 30, selfHarm: 0, daysAgo: 5, notes: 'Patient very anxious about household debt. Not sleeping more than 3 hours. Refuses to eat some days. High distress — district nurse notified and follow-up in 7 days.' },
-    { id: 'demo-v8', pid: 'demo-p8', risk: 'low',      score: 3,  maxScore: 27, selfHarm: 0, daysAgo: 6, notes: 'Adolescent cooperative and cheerful. Good appetite and sleep. Family environment stable. Routine follow-up in 6 weeks.' },
+  const allVisits = [
+    // Sita Sharma — stable low risk (3 visits)
+    { id: 'demo-v1',   pid: 'demo-p1',  risk: 'low',      score: 5,  maxScore: 30, selfHarm: 0, daysAgo: 0,  notes: 'Patient appears well. Baby feeding regularly. Husband supportive. No concerns at this time.' },
+    { id: 'demo-v1b',  pid: 'demo-p1',  risk: 'low',      score: 6,  maxScore: 30, selfHarm: 0, daysAgo: 35, notes: 'First postnatal home visit at 6 weeks. Mother adjusting well. Baby healthy.' },
+    { id: 'demo-v1c',  pid: 'demo-p1',  risk: 'low',      score: 4,  maxScore: 30, selfHarm: 0, daysAgo: 70, notes: 'Pre-discharge check. Patient in good spirits. Strong family support.' },
+    // Gita Rai — moderate, improving (3 visits)
+    { id: 'demo-v2',   pid: 'demo-p2',  risk: 'moderate', score: 11, maxScore: 30, selfHarm: 0, daysAgo: 1,  notes: 'Occasional sadness, low energy. Husband migrated to Qatar. Advised community support group.' },
+    { id: 'demo-v2b',  pid: 'demo-p2',  risk: 'low',      score: 7,  maxScore: 30, selfHarm: 0, daysAgo: 30, notes: 'Improvement noted. Mother-in-law helping with childcare. Follow-up in 4 weeks.' },
+    { id: 'demo-v2c',  pid: 'demo-p2',  risk: 'low',      score: 5,  maxScore: 30, selfHarm: 0, daysAgo: 60, notes: 'Initial screening. Patient well. Good social support from neighbors.' },
+    // Maya Thapa — deteriorating to high (4 visits)
+    { id: 'demo-v3',   pid: 'demo-p3',  risk: 'high',     score: 17, maxScore: 30, selfHarm: 0, daysAgo: 2,  notes: 'Patient tearful. Difficulty sleeping, overwhelmed with newborn. Mother-in-law conflict. Psychiatric nurse alerted.' },
+    { id: 'demo-v3b',  pid: 'demo-p3',  risk: 'moderate', score: 12, maxScore: 30, selfHarm: 0, daysAgo: 14, notes: 'More withdrawn. Insomnia and reduced appetite. Husband working in Pokhara. Earlier follow-up scheduled.' },
+    { id: 'demo-v3c',  pid: 'demo-p3',  risk: 'low',      score: 8,  maxScore: 30, selfHarm: 0, daysAgo: 35, notes: 'Routine 6-week check. Tired but managing. Advised community mothers\' group.' },
+    { id: 'demo-v3d',  pid: 'demo-p3',  risk: 'low',      score: 4,  maxScore: 30, selfHarm: 0, daysAgo: 70, notes: 'Initial postnatal visit. Mother recovering well. Strong extended family.' },
+    // Anita Gurung — critical self-harm history (4 visits)
+    { id: 'demo-v4',   pid: 'demo-p4',  risk: 'critical', score: 22, maxScore: 30, selfHarm: 1, daysAgo: 3,  notes: 'Patient disclosed self-harm thoughts. Crisis protocol followed — stayed until family arrived. Emergency referral made.' },
+    { id: 'demo-v4b',  pid: 'demo-p4',  risk: 'high',     score: 19, maxScore: 30, selfHarm: 0, daysAgo: 14, notes: 'Significant decline. Unable to care for baby alone. Mother-in-law called. District nurse alerted.' },
+    { id: 'demo-v4c',  pid: 'demo-p4',  risk: 'moderate', score: 13, maxScore: 30, selfHarm: 0, daysAgo: 28, notes: 'Tearful and lonely. Husband away for work. Community support group suggested.' },
+    { id: 'demo-v4d',  pid: 'demo-p4',  risk: 'low',      score: 6,  maxScore: 30, selfHarm: 0, daysAgo: 56, notes: 'Post-delivery check. Patient healthy, good spirits. Strong family support.' },
+    // Rajesh KC — stable low (3 visits)
+    { id: 'demo-v5',   pid: 'demo-p5',  risk: 'low',      score: 4,  maxScore: 27, selfHarm: 0, daysAgo: 0,  notes: 'Healthy and engaged. Active in school football. Good family support.' },
+    { id: 'demo-v5b',  pid: 'demo-p5',  risk: 'low',      score: 5,  maxScore: 27, selfHarm: 0, daysAgo: 35, notes: 'Good academic performance. No concerns. Follow-up in 6 weeks.' },
+    { id: 'demo-v5c',  pid: 'demo-p5',  risk: 'low',      score: 3,  maxScore: 27, selfHarm: 0, daysAgo: 70, notes: 'Initial screening. Student cheerful and cooperative.' },
+    // Priya Magar — youth persistent moderate (3 visits)
+    { id: 'demo-v6',   pid: 'demo-p6',  risk: 'moderate', score: 9,  maxScore: 27, selfHarm: 0, daysAgo: 4,  notes: 'Withdrawn. Teacher reports declining grades. Parents unaware. Family counseling suggested.' },
+    { id: 'demo-v6b',  pid: 'demo-p6',  risk: 'moderate', score: 10, maxScore: 27, selfHarm: 0, daysAgo: 30, notes: 'Quieter than usual. Difficulty concentrating. Sleep issues mentioned.' },
+    { id: 'demo-v6c',  pid: 'demo-p6',  risk: 'low',      score: 5,  maxScore: 27, selfHarm: 0, daysAgo: 65, notes: 'Initial screening at start of year. Student doing well — active in volleyball.' },
+    // Kopila Shrestha — high risk, recovering (3 visits)
+    { id: 'demo-v7',   pid: 'demo-p7',  risk: 'high',     score: 15, maxScore: 30, selfHarm: 0, daysAgo: 5,  notes: 'Very anxious about household debt. Not sleeping. Refusing to eat. District nurse notified.' },
+    { id: 'demo-v7b',  pid: 'demo-p7',  risk: 'moderate', score: 11, maxScore: 30, selfHarm: 0, daysAgo: 21, notes: 'Mild improvement. Husband found part-time work. Follow-up in 2 weeks.' },
+    { id: 'demo-v7c',  pid: 'demo-p7',  risk: 'low',      score: 6,  maxScore: 30, selfHarm: 0, daysAgo: 56, notes: 'Post-delivery check at 6 weeks. Patient healthy. Husband supportive.' },
+    // Aarav Tamang — stable low (2 visits)
+    { id: 'demo-v8',   pid: 'demo-p8',  risk: 'low',      score: 3,  maxScore: 27, selfHarm: 0, daysAgo: 6,  notes: 'Cooperative and cheerful. Good appetite and sleep. Follow-up in 6 weeks.' },
+    { id: 'demo-v8b',  pid: 'demo-p8',  risk: 'low',      score: 4,  maxScore: 27, selfHarm: 0, daysAgo: 42, notes: 'Initial screening. No concerns.' },
+    // Nirmala Adhikari — gradual recovery (4 visits)
+    { id: 'demo-v9',   pid: 'demo-p9',  risk: 'low',      score: 7,  maxScore: 30, selfHarm: 0, daysAgo: 3,  notes: 'Good progress. Patient smiling. Baby gaining weight. Husband more involved at home.' },
+    { id: 'demo-v9b',  pid: 'demo-p9',  risk: 'low',      score: 8,  maxScore: 30, selfHarm: 0, daysAgo: 17, notes: 'Continued improvement. Joined mothers\' support group at health post.' },
+    { id: 'demo-v9c',  pid: 'demo-p9',  risk: 'moderate', score: 11, maxScore: 30, selfHarm: 0, daysAgo: 31, notes: 'Some difficulty adjusting. Feeling isolated — neighbors not supportive. Referred to support group.' },
+    { id: 'demo-v9d',  pid: 'demo-p9',  risk: 'moderate', score: 12, maxScore: 30, selfHarm: 0, daysAgo: 50, notes: 'Initial check. Mild low mood. Follow-up in 2 weeks.' },
+    // Sunita Pun — deterioration: low → moderate → high (3 visits)
+    { id: 'demo-v10',  pid: 'demo-p10', risk: 'high',     score: 14, maxScore: 30, selfHarm: 0, daysAgo: 1,  notes: 'Significant deterioration. Patient crying throughout. Husband gambling, absent. Urgent district nurse referral.' },
+    { id: 'demo-v10b', pid: 'demo-p10', risk: 'moderate', score: 10, maxScore: 30, selfHarm: 0, daysAgo: 21, notes: 'Increasing anxiety. Financial stress. Husband behavior erratic.' },
+    { id: 'demo-v10c', pid: 'demo-p10', risk: 'low',      score: 5,  maxScore: 30, selfHarm: 0, daysAgo: 50, notes: 'Initial check post-delivery. Patient in reasonable spirits. Baby healthy.' },
+    // Rahul Bhattarai — persistent moderate youth (4 visits)
+    { id: 'demo-v11',  pid: 'demo-p11', risk: 'moderate', score: 9,  maxScore: 27, selfHarm: 0, daysAgo: 2,  notes: 'Social withdrawal. Avoids group activities. Teacher concerned.' },
+    { id: 'demo-v11b', pid: 'demo-p11', risk: 'moderate', score: 8,  maxScore: 27, selfHarm: 0, daysAgo: 30, notes: 'Mild improvement but still quiet. Enjoys drawing. Art therapy suggested to parents.' },
+    { id: 'demo-v11c', pid: 'demo-p11', risk: 'moderate', score: 10, maxScore: 27, selfHarm: 0, daysAgo: 60, notes: 'Persistent low mood. Parents divorced last year — major impact.' },
+    { id: 'demo-v11d', pid: 'demo-p11', risk: 'low',      score: 4,  maxScore: 27, selfHarm: 0, daysAgo: 90, notes: 'Initial screening. Quiet but seemed okay. Recommended monitoring.' },
+    // Sarita Khadka — critical history, now recovering (4 visits)
+    { id: 'demo-v12',  pid: 'demo-p12', risk: 'moderate', score: 10, maxScore: 30, selfHarm: 0, daysAgo: 7,  notes: 'Recovery progressing. Patient laughing with mother today. Much better than previous visit.' },
+    { id: 'demo-v12b', pid: 'demo-p12', risk: 'high',     score: 16, maxScore: 30, selfHarm: 0, daysAgo: 21, notes: 'Still distressed but no self-harm ideation. Continues psychiatric follow-up. Husband supportive.' },
+    { id: 'demo-v12c', pid: 'demo-p12', risk: 'critical', score: 24, maxScore: 30, selfHarm: 1, daysAgo: 35, notes: 'Patient in crisis. Expressed wish to "not be here anymore." Stayed 2 hours. Emergency protocol. Family and psychiatrist contacted.' },
+    { id: 'demo-v12d', pid: 'demo-p12', risk: 'moderate', score: 13, maxScore: 30, selfHarm: 0, daysAgo: 56, notes: 'First visit after delivery. Very anxious — baby admitted to NICU briefly.' },
+    // Deepa Malla — stable low (3 visits)
+    { id: 'demo-v13',  pid: 'demo-p13', risk: 'low',      score: 4,  maxScore: 30, selfHarm: 0, daysAgo: 8,  notes: 'Excellent spirits. Breastfeeding going well. Husband very involved. No concerns.' },
+    { id: 'demo-v13b', pid: 'demo-p13', risk: 'low',      score: 5,  maxScore: 30, selfHarm: 0, daysAgo: 42, notes: 'Good adjustment to motherhood. Extended family support. Follow-up in 6 weeks.' },
+    { id: 'demo-v13c', pid: 'demo-p13', risk: 'low',      score: 3,  maxScore: 30, selfHarm: 0, daysAgo: 80, notes: 'Initial check. Healthy delivery. Patient and family well-prepared.' },
+    // Prashant Karki — escalating youth concern (4 visits)
+    { id: 'demo-v14',  pid: 'demo-p14', risk: 'high',     score: 15, maxScore: 27, selfHarm: 0, daysAgo: 1,  notes: 'Refusing school. Not left his room in 3 days. Parents alarmed. Urgent referral to health post.' },
+    { id: 'demo-v14b', pid: 'demo-p14', risk: 'moderate', score: 11, maxScore: 27, selfHarm: 0, daysAgo: 21, notes: 'Worsening. Reports bullying at school. Sleeps excessively. Parents agreed to seek professional help.' },
+    { id: 'demo-v14c', pid: 'demo-p14', risk: 'moderate', score: 9,  maxScore: 27, selfHarm: 0, daysAgo: 50, notes: 'Becoming quieter. Frequent stomach aches — possible somatization.' },
+    { id: 'demo-v14d', pid: 'demo-p14', risk: 'low',      score: 4,  maxScore: 27, selfHarm: 0, daysAgo: 90, notes: 'Initial screening. Student happy and active in classroom.' },
   ];
-
-  // Additional historical visits to show patient progression
-  const extraVisits = [
-    { id: 'demo-v1b', pid: 'demo-p1', risk: 'low',      score: 6,  maxScore: 30, selfHarm: 0, daysAgo: 35,  notes: 'First postnatal home visit at 6 weeks. Mother adjusting to newborn. Baby feeding regularly. Husband supportive.' },
-    { id: 'demo-v1c', pid: 'demo-p1', risk: 'low',      score: 4,  maxScore: 30, selfHarm: 0, daysAgo: 70,  notes: 'Pre-discharge check at 3 days post-birth. Patient in good spirits. Strong family support present.' },
-    { id: 'demo-v3b', pid: 'demo-p3', risk: 'moderate',  score: 12, maxScore: 30, selfHarm: 0, daysAgo: 14,  notes: 'Patient seems more withdrawn than last visit. Reports insomnia and reduced appetite. Husband now working in Pokhara. Scheduled earlier follow-up.' },
-    { id: 'demo-v3c', pid: 'demo-p3', risk: 'low',      score: 8,  maxScore: 30, selfHarm: 0, daysAgo: 35,  notes: 'Routine 6-week check. Patient tired but managing. No major concerns. Advised on community mother\'s group.' },
-    { id: 'demo-v4b', pid: 'demo-p4', risk: 'high',     score: 19, maxScore: 30, selfHarm: 0, daysAgo: 14,  notes: 'Significant decline in wellbeing. Patient unable to care for baby alone. Mother-in-law called in to help. District nurse alerted immediately.' },
-    { id: 'demo-v4c', pid: 'demo-p4', risk: 'moderate',  score: 13, maxScore: 30, selfHarm: 0, daysAgo: 28,  notes: 'Patient tearful and emotional. Reports feeling lonely and unsupported. Husband away for work. Advised community support group. Follow-up in 2 weeks.' },
-    { id: 'demo-v6b', pid: 'demo-p6', risk: 'low',      score: 5,  maxScore: 27, selfHarm: 0, daysAgo: 35,  notes: 'Initial screening at start of academic year. Student doing well — good grades, active in school volleyball team.' },
-    { id: 'demo-v7b', pid: 'demo-p7', risk: 'low',      score: 6,  maxScore: 30, selfHarm: 0, daysAgo: 35,  notes: 'Post-delivery check at 6 weeks. Patient healthy and recovering well. Husband present and supportive.' },
-  ];
-
-  for (const v of extraVisits) {
-    try {
-      db.runSync(
-        `INSERT OR REPLACE INTO visits (id, patient_id, visit_date, risk_level, risk_score, max_score, self_harm_flag, physical_checks, screening_responses, notes, synced, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, '{}', '{}', ?, 0, ?)`,
-        [v.id, v.pid, daysAgoDate(v.daysAgo), v.risk, v.score, v.maxScore, v.selfHarm, v.notes, daysAgoTs(v.daysAgo)],
-      );
-    } catch {}
-  }
-
-  // Additional alert for escalated visit
-  const extraAlerts = [
-    { id: 'demo-a4', visitId: 'demo-v4b', pid: 'demo-p4', name: 'Anita Gurung', risk: 'high', psychId: 'psych-1', psychName: 'Dr. Sushila Thapa', psychPhone: '9856021345', escalated: 0 },
-  ];
-  for (const a of extraAlerts) {
-    try {
-      db.runSync(
-        `INSERT OR IGNORE INTO alerts (id, visit_id, patient_id, patient_name, risk_level, status, psychiatrist_id, psychiatrist_name, psychiatrist_phone, escalated, notes, created_at)
-         VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?, ?, '', ?)`,
-        [a.id, a.visitId, a.pid, a.name, a.risk, a.psychId, a.psychName, a.psychPhone, a.escalated, daysAgoTs(0)],
-      );
-    } catch {}
-  }
 
   const demoAlerts = [
-    { id: 'demo-a1', visitId: 'demo-v3', pid: 'demo-p3', name: 'Maya Thapa', risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
-    { id: 'demo-a2', visitId: 'demo-v4', pid: 'demo-p4', name: 'Anita Gurung', risk: 'critical', psychId: 'psych-2', psychName: 'Dr. Prakash Adhikari', psychPhone: '9841034567', escalated: 1 },
-    { id: 'demo-a3', visitId: 'demo-v7', pid: 'demo-p7', name: 'Kopila Shrestha', risk: 'high',  psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
+    { id: 'demo-a1',  visitId: 'demo-v3',   pid: 'demo-p3',  name: 'Maya Thapa',      risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
+    { id: 'demo-a2',  visitId: 'demo-v4',   pid: 'demo-p4',  name: 'Anita Gurung',    risk: 'critical', psychId: 'psych-2', psychName: 'Dr. Prakash Adhikari', psychPhone: '9841034567', escalated: 1 },
+    { id: 'demo-a3',  visitId: 'demo-v7',   pid: 'demo-p7',  name: 'Kopila Shrestha', risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
+    { id: 'demo-a4',  visitId: 'demo-v4b',  pid: 'demo-p4',  name: 'Anita Gurung',    risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
+    { id: 'demo-a5',  visitId: 'demo-v10',  pid: 'demo-p10', name: 'Sunita Pun',      risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
+    { id: 'demo-a6',  visitId: 'demo-v12c', pid: 'demo-p12', name: 'Sarita Khadka',   risk: 'critical', psychId: 'psych-2', psychName: 'Dr. Prakash Adhikari', psychPhone: '9841034567', escalated: 1 },
+    { id: 'demo-a7',  visitId: 'demo-v14',  pid: 'demo-p14', name: 'Prashant Karki',  risk: 'high',     psychId: 'psych-1', psychName: 'Dr. Sushila Thapa',    psychPhone: '9856021345', escalated: 0 },
   ];
 
   for (const p of patients) {
@@ -288,7 +387,7 @@ export function seedDemoData() {
     } catch {}
   }
 
-  for (const v of visits) {
+  for (const v of allVisits) {
     try {
       db.runSync(
         `INSERT OR REPLACE INTO visits (id, patient_id, visit_date, risk_level, risk_score, max_score, self_harm_flag, physical_checks, screening_responses, notes, synced, created_at)

@@ -11,6 +11,8 @@ import { COLORS, SIZES } from '../theme';
 const DEMO_VOLUNTEERS = [
   { id: 'FCHV-1001', pin: '1234', name: 'Kamala Devi Sharma', nameNe: 'कमला देवी शर्मा', district: 'Kaski', districtNe: 'कास्की' },
   { id: 'FCHV-1002', pin: '5678', name: 'Sunita Rai', nameNe: 'सुनिता राई', district: 'Pokhara Metro', districtNe: 'पोखरा महानगर' },
+  { id: 'FCHV-1003', pin: '9012', name: 'Pramila Tamang', nameNe: 'प्रमिला तामाङ', district: 'Gorkha', districtNe: 'गोरखा' },
+  { id: 'FCHV-1004', pin: '3456', name: 'Anita K.C.', nameNe: 'अनिता के.सी.', district: 'Lamjung', districtNe: 'लमजुङ' },
 ];
 
 export default function LoginScreen({ onLogin }) {
@@ -33,7 +35,7 @@ export default function LoginScreen({ onLogin }) {
       const session = JSON.stringify({ id: match.id, name: match.name, nameNe: match.nameNe, district: match.district, districtNe: match.districtNe });
       await AsyncStorage.setItem('fchv-session', session);
       await AsyncStorage.setItem('fchv-name', lang === 'ne' ? match.nameNe : match.name);
-      await AsyncStorage.setItem('fchv-district', lang === 'ne' ? match.districtNe : match.district);
+      await AsyncStorage.setItem('fchv-district', match.district); // always store English for psychiatrist matching
       onLogin(match);
     } else {
       setError(t('invalidCredentials'));
