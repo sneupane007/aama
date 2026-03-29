@@ -6,7 +6,7 @@ import { useTranslation } from '../utils/i18n';
 import { getUnsyncedCount } from '../db';
 import { COLORS, SIZES, commonStyles } from '../theme';
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ onLogout, volunteer }) {
   const { t, lang, setLanguage } = useTranslation();
   const [pendingCount, setPendingCount] = useState(0);
   const [fchvName, setFchvName] = useState('');
@@ -14,7 +14,7 @@ export default function SettingsScreen() {
   const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
-    getUnsyncedCount().then(setPendingCount).catch(() => {});
+    try { setPendingCount(getUnsyncedCount()); } catch {}
     AsyncStorage.getItem('fchv-name').then((v) => v && setFchvName(v));
     AsyncStorage.getItem('fchv-district').then((v) => v && setFchvDistrict(v));
   }, []);
@@ -176,6 +176,24 @@ export default function SettingsScreen() {
         </Text>
       </View>
 
+      {/* Sign Out */}
+      <TouchableOpacity
+        style={styles.logoutBtn}
+        onPress={() => {
+          Alert.alert(
+            lang === 'ne' ? 'साइन आउट' : 'Sign Out',
+            t('logoutConfirm'),
+            [
+              { text: t('cancel'), style: 'cancel' },
+              { text: t('logout'), style: 'destructive', onPress: onLogout },
+            ],
+          );
+        }}
+      >
+        <Ionicons name="log-out-outline" size={20} color={COLORS.riskHigh} />
+        <Text style={styles.logoutBtnText}>{t('logout')}</Text>
+      </TouchableOpacity>
+
       <View style={{ height: 32 }} />
     </ScrollView>
   );
@@ -289,5 +307,22 @@ const styles = StyleSheet.create({
     fontSize: SIZES.sm,
     color: COLORS.textSecondary,
     lineHeight: 22,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1.5,
+    borderColor: '#fecdd3',
+    borderRadius: SIZES.borderRadiusSm,
+    padding: 16,
+    marginBottom: 8,
+  },
+  logoutBtnText: {
+    fontSize: SIZES.base,
+    fontWeight: '700',
+    color: COLORS.riskHigh,
   },
 });

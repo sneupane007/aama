@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from '../utils/i18n';
-import { getTodayVisits, getUnsyncedCount, getAllPatientsWithRisk, getHighRiskCount } from '../db';
+import { getTodayVisits, getUnsyncedCount, getAllPatientsWithRisk, getHighRiskCount, seedDemoData } from '../db';
 import RiskBadge from '../components/RiskBadge';
 import { COLORS, SIZES, commonStyles } from '../theme';
 
@@ -12,6 +12,7 @@ export default function HomeScreen({ navigation }) {
   const [stats, setStats] = useState({ todayVisits: 0, pendingSync: 0, highRisk: 0, totalPatients: 0 });
   const [recentPatients, setRecentPatients] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -47,6 +48,19 @@ export default function HomeScreen({ navigation }) {
     await loadData();
     setRefreshing(false);
   };
+
+  async function handleLoadDemo() {
+    setDemoLoading(true);
+    try {
+      seedDemoData();
+      await loadData();
+      Alert.alert('', t('demoLoaded'));
+    } catch (e) {
+      console.error('Demo seed error:', e);
+    } finally {
+      setDemoLoading(false);
+    }
+  }
 
   const getInitials = (name) => {
     if (!name) return '?';
@@ -109,6 +123,17 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+      {stats.totalPatients > 0 && (
+        <View style={styles.impactBanner}>
+          <View style={styles.impactLeft}>
+            <Text style={styles.impactNumber}>{Math.max(0, stats.totalPatients - stats.highRisk)}</Text>
+            <Text style={styles.impactLabel}>{t('consultationsSaved')}</Text>
+          </View>
+          <View style={styles.impactDivider} />
+          <Text style={styles.impactDesc}>{t('consultationsSavedDesc')}</Text>
+        </View>
+      )}
+
       <Text style={commonStyles.sectionTitle}>{t('quickActions')}</Text>
       <View style={styles.quickActions}>
         <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('NewVisit')} activeOpacity={0.7}>
@@ -145,11 +170,29 @@ export default function HomeScreen({ navigation }) {
             <Ionicons name="add" size={20} color={COLORS.white} />
             <Text style={commonStyles.btnPrimaryText}>{t('startVisit')}</Text>
           </TouchableOpacity>
+          {stats.totalPatients === 0 && (
+            <TouchableOpacity
+              style={[styles.demoBtn, demoLoading && { opacity: 0.6 }]}
+              onPress={handleLoadDemo}
+              disabled={demoLoading}
+            >
+              <Ionicons name="flask" size={18} color={COLORS.primary} />
+              <View>
+                <Text style={styles.demoBtnTitle}>{demoLoading ? '...' : t('loadDemo')}</Text>
+                <Text style={styles.demoBtnDesc}>{t('loadDemoDesc')}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <View>
           {recentPatients.map((patient) => (
-            <View key={patient.id} style={styles.visitItem}>
+            <TouchableOpacity
+              key={patient.id}
+              style={styles.visitItem}
+              onPress={() => navigation.navigate('PatientDetail', { patientId: patient.id, patientName: patient.name })}
+              activeOpacity={0.7}
+            >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
               </View>
@@ -160,8 +203,11 @@ export default function HomeScreen({ navigation }) {
                   {patient.latestVisit ? ` · ${formatDate(patient.latestVisit.createdAt)}` : ''}
                 </Text>
               </View>
-              <RiskBadge riskLevel={patient.latestRisk} lang={lang} size="small" />
-            </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <RiskBadge riskLevel={patient.latestRisk} lang={lang} size="small" />
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+              </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
@@ -299,5 +345,66 @@ const styles = StyleSheet.create({
     fontSize: SIZES.xs,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  impactBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ccfbf1',
+    borderRadius: SIZES.borderRadiusSm,
+    padding: 14,
+    marginBottom: 20,
+    gap: 12,
+  },
+  impactLeft: {
+    alignItems: 'center',
+    minWidth: 52,
+  },
+  impactNumber: {
+    fontSize: SIZES.xxl,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  impactLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  impactDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: COLORS.primaryLight,
+    opacity: 0.4,
+  },
+  impactDesc: {
+    flex: 1,
+    fontSize: SIZES.xs,
+    color: COLORS.primary,
+    lineHeight: 18,
+  },
+  demoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: SIZES.borderRadiusSm,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    backgroundColor: '#f0fdfa',
+    width: '100%',
+  },
+  demoBtnTitle: {
+    fontSize: SIZES.sm,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  demoBtnDesc: {
+    fontSize: SIZES.xs,
+    color: COLORS.primaryLight,
+    marginTop: 1,
   },
 });

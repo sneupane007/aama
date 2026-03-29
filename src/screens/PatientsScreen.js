@@ -7,7 +7,7 @@ import { getAllPatientsWithRisk } from '../db';
 import RiskBadge from '../components/RiskBadge';
 import { COLORS, SIZES, commonStyles } from '../theme';
 
-export default function PatientsScreen() {
+export default function PatientsScreen({ navigation }) {
   const { t, lang } = useTranslation();
   const [patients, setPatients] = useState([]);
   const [search, setSearch] = useState('');
@@ -107,7 +107,12 @@ export default function PatientsScreen() {
       ) : (
         <View>
           {filtered.map((patient) => (
-            <View key={patient.id} style={styles.patientItem}>
+            <TouchableOpacity
+              key={patient.id}
+              style={styles.patientItem}
+              onPress={() => navigation.navigate('PatientDetail', { patientId: patient.id, patientName: patient.name })}
+              activeOpacity={0.7}
+            >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{getInitials(patient.name)}</Text>
               </View>
@@ -122,8 +127,11 @@ export default function PatientsScreen() {
                     : ''}
                 </Text>
               </View>
-              <RiskBadge riskLevel={patient.latestRisk} lang={lang} size="small" />
-            </View>
+              <View style={[commonStyles.row, { gap: 6 }]}>
+                <RiskBadge riskLevel={patient.latestRisk} lang={lang} size="small" />
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+              </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}

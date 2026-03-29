@@ -23,6 +23,57 @@ import RiskBadge from '../components/RiskBadge';
 import { COLORS, SIZES, commonStyles, RISK_COLORS } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+function ProtocolStep({ icon, color, text, done, bold }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+      <Ionicons name={done ? 'checkmark-circle' : icon} size={18} color={color} style={{ marginTop: 1 }} />
+      <Text style={{ flex: 1, fontSize: SIZES.sm, color: done ? COLORS.textSecondary : COLORS.text, fontWeight: bold ? '700' : '400', lineHeight: 20 }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function AlertPreviewCard({ patientName, patientAge, patientType, riskLevel, riskScore, maxScore, selfHarm, lang, t }) {
+  const [expanded, setExpanded] = useState(false);
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString(lang === 'ne' ? 'ne-NP' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <View style={styles.previewCard}>
+      <TouchableOpacity
+        style={styles.previewToggle}
+        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />
+        <Text style={styles.previewToggleText}>{t('alertPreviewToggle')}</Text>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textMuted} />
+      </TouchableOpacity>
+      {expanded && (
+        <View style={styles.previewBody}>
+          <Text style={styles.previewTitle}>{t('alertPreviewTitle')}</Text>
+          {[
+            ['Patient', patientName],
+            ['Type', patientType === 'postnatal' ? (lang === 'ne' ? 'सुत्केरी आमा' : 'Postnatal Mother') : (lang === 'ne' ? 'युवा' : 'Youth')],
+            ['Age', patientAge],
+            ['Risk Level', riskLevel?.toUpperCase()],
+            ['Score', `${riskScore} / ${maxScore}`],
+            ['Self-harm Flag', selfHarm ? '⚠️ Yes' : 'No'],
+            ['Date', now.toLocaleDateString()],
+            [t('alertTimestamp'), timeStr],
+          ].map(([label, value]) => (
+            <View key={label} style={styles.previewRow}>
+              <Text style={styles.previewLabel}>{label}</Text>
+              <Text style={styles.previewValue}>{value}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function NewVisitScreen({ navigation }) {
   const { t, lang } = useTranslation();
   const [step, setStep] = useState(0);
@@ -40,6 +91,8 @@ export default function NewVisitScreen({ navigation }) {
   const [result, setResult] = useState(null);
   const [alertResult, setAlertResult] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [consentAcknowledged, setConsentAcknowledged] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -95,6 +148,7 @@ export default function NewVisitScreen({ navigation }) {
         screeningResponses: responses,
         riskResult: result,
         geoLocation,
+        notes: sessionNotes,
       });
 
       if (result.riskLevel === 'high' || result.riskLevel === 'critical') {
@@ -131,6 +185,19 @@ export default function NewVisitScreen({ navigation }) {
         </View>
         <Text style={styles.alertTitle}>{t('alertSent')}</Text>
         <Text style={styles.alertSubtitle}>{t('alertAutoRouted')}</Text>
+
+        {/* Alert preview — what was sent */}
+        <AlertPreviewCard
+          patientName={patientName}
+          patientAge={patientAge}
+          patientType={patientType}
+          riskLevel={result?.riskLevel}
+          riskScore={result?.score}
+          maxScore={result?.maxScore}
+          selfHarm={result?.selfHarmFlag}
+          lang={lang}
+          t={t}
+        />
 
         {psych && (
           <View style={commonStyles.card}>
@@ -353,8 +420,34 @@ export default function NewVisitScreen({ navigation }) {
         </View>
       )}
 
-      {/* Step 2: Wellness Screening */}
-      {step === 2 && (
+      {/* Step 2: Mental Health Screening */}
+      {step === 2 && !consentAcknowledged && (
+        <View style={styles.consentCard}>
+          <View style={styles.consentIconRow}>
+            <View style={styles.consentIconBg}>
+              <Ionicons name="shield-checkmark" size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.consentTitle}>{t('consentTitle')}</Text>
+          </View>
+          <Text style={styles.consentBody}>{t('consentBody')}</Text>
+          <TouchableOpacity
+            style={[commonStyles.btnPrimary, { marginTop: 20 }]}
+            onPress={() => setConsentAcknowledged(true)}
+          >
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+            <Text style={commonStyles.btnPrimaryText}>{t('consentBtn')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[commonStyles.btnSecondary, { marginTop: 10 }]}
+            onPress={() => setStep(1)}
+          >
+            <Ionicons name="arrow-back" size={18} color={COLORS.text} />
+            <Text style={commonStyles.btnSecondaryText}>{t('back')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {step === 2 && consentAcknowledged && (
         <View>
           <Text style={styles.pageTitle}>{t('wellnessTitle')}</Text>
           <Text style={commonStyles.subtitle}>{t('wellnessDesc')}</Text>
@@ -372,7 +465,7 @@ export default function NewVisitScreen({ navigation }) {
                   <Text style={styles.questionNumberText}>{i + 1}</Text>
                 </View>
                 <Text style={styles.questionText}>
-                  {lang === 'ne' ? q.maskedLabel?.ne || q.ne : q.maskedLabel?.en || q.en}
+                  {lang === 'ne' ? q.ne : q.en}
                 </Text>
               </View>
 
@@ -429,20 +522,46 @@ export default function NewVisitScreen({ navigation }) {
             <RiskBadge riskLevel={result.riskLevel} lang={lang} />
           </View>
 
-          <View style={commonStyles.card}>
-            {result.riskLevel === 'critical' && (
-              <View style={[commonStyles.row, { gap: 8, marginBottom: 12 }]}>
-                <Ionicons name="alert-circle" size={22} color={COLORS.riskCritical} />
-                <Text style={{ fontWeight: '800', color: COLORS.riskCritical, fontSize: SIZES.base }}>
-                  {lang === 'ne' ? 'तत्काल कार्य आवश्यक' : 'Immediate Action Required'}
-                </Text>
+          <View style={[commonStyles.card, result.riskLevel === 'critical' && styles.protocolCardCritical]}>
+            <View style={[commonStyles.row, { gap: 8, marginBottom: 12 }]}>
+              <Ionicons
+                name={result.riskLevel === 'critical' ? 'alert' : result.riskLevel === 'high' ? 'warning' : 'shield-checkmark'}
+                size={20}
+                color={result.riskLevel === 'critical' ? COLORS.riskCritical : result.riskLevel === 'high' ? COLORS.riskHigh : COLORS.primary}
+              />
+              <Text style={[styles.protocolTitle, result.riskLevel === 'critical' && { color: COLORS.riskCritical }]}>
+                {result.riskLevel === 'critical' ? t('protocolCritTitle') : t('protocolTitle')}
+              </Text>
+            </View>
+
+            {result.riskLevel === 'low' && (
+              <View style={styles.protocolSteps}>
+                <ProtocolStep icon="checkmark-circle" color={COLORS.riskLow} text={t('protocolLow1')} done />
+                <ProtocolStep icon="calendar" color={COLORS.textSecondary} text={t('protocolLow2')} />
               </View>
             )}
-            <Text style={styles.recommendationText}>
-              {lang === 'ne' ? result.recommendation.ne : result.recommendation.en}
-            </Text>
-            <View style={[commonStyles.row, { gap: 6, marginTop: 12 }]}>
-              <Text style={{ fontSize: 16 }}>📅</Text>
+            {result.riskLevel === 'moderate' && (
+              <View style={styles.protocolSteps}>
+                <ProtocolStep icon="checkmark-circle" color={COLORS.riskLow} text={t('protocolMod1')} done />
+                <ProtocolStep icon="phone-portrait" color={COLORS.accent} text={t('protocolMod2')} />
+              </View>
+            )}
+            {result.riskLevel === 'high' && (
+              <View style={styles.protocolSteps}>
+                <ProtocolStep icon="flash" color={COLORS.riskHigh} text={t('protocolHigh1')} />
+                <ProtocolStep icon="medkit" color={COLORS.riskHigh} text={t('protocolHigh2')} />
+              </View>
+            )}
+            {result.riskLevel === 'critical' && (
+              <View style={styles.protocolSteps}>
+                <ProtocolStep icon="hand-left" color={COLORS.riskCritical} text={t('protocolCrit1')} bold />
+                <ProtocolStep icon="chatbubble-ellipses" color={COLORS.riskCritical} text={t('protocolCrit2')} />
+                <ProtocolStep icon="call" color={COLORS.riskCritical} text={t('protocolCrit3')} />
+              </View>
+            )}
+
+            <View style={[commonStyles.row, { gap: 6, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border }]}>
+              <Ionicons name="calendar-outline" size={14} color={COLORS.textMuted} />
               <Text style={{ fontSize: SIZES.xs, color: COLORS.textMuted }}>
                 {lang === 'ne' ? 'अर्को भेट' : 'Follow-up'}: {result.followUpDate} ({result.followUpDays}{' '}
                 {lang === 'ne' ? 'दिन' : 'days'})
@@ -456,6 +575,20 @@ export default function NewVisitScreen({ navigation }) {
               {patientType === 'postnatal' ? t('postnatalMother') : t('youth')} · {t('age')}: {patientAge}
               {patientAddress ? ` · ${patientAddress}` : ''}
             </Text>
+          </View>
+
+          <View style={commonStyles.card}>
+            <Text style={commonStyles.label}>{t('addSessionNotes')}</Text>
+            <TextInput
+              style={[commonStyles.input, styles.notesInput]}
+              value={sessionNotes}
+              onChangeText={setSessionNotes}
+              placeholder={lang === 'ne' ? 'यस भेटको बारेमा टिप्पणी...' : 'Notes about this visit...'}
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
           </View>
 
           <TouchableOpacity
@@ -801,5 +934,109 @@ const styles = StyleSheet.create({
   alertActions: {
     flexDirection: 'row',
     gap: 10,
+  },
+  consentCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.borderRadius,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  consentIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  consentIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ccfbf1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  consentTitle: {
+    fontSize: SIZES.lg,
+    fontWeight: '800',
+    color: COLORS.text,
+    flex: 1,
+  },
+  consentBody: {
+    fontSize: SIZES.sm,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  protocolTitle: {
+    fontSize: SIZES.base,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  protocolSteps: {
+    marginTop: 4,
+  },
+  protocolCardCritical: {
+    borderWidth: 2,
+    borderColor: COLORS.riskCritical,
+    backgroundColor: '#fff5f5',
+  },
+  notesInput: {
+    height: 80,
+    paddingTop: 10,
+  },
+  previewCard: {
+    width: '100%',
+    backgroundColor: '#f0fdfa',
+    borderRadius: SIZES.borderRadiusSm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  previewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+  },
+  previewToggleText: {
+    flex: 1,
+    fontSize: SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  previewTitle: {
+    fontSize: SIZES.xs,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  previewBody: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.primary,
+    padding: 12,
+    gap: 6,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  previewLabel: {
+    fontSize: SIZES.xs,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  previewValue: {
+    fontSize: SIZES.xs,
+    color: COLORS.text,
+    fontWeight: '700',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
   },
 });
